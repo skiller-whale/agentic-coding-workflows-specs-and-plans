@@ -1,4 +1,7 @@
-"""The coach's live, read-only view of the learner's tmux session and repo, served on port 1001.
+"""The coach's live, read-only view of the learner's tmux session and repo.
+
+It listens on port 8001, because the learner can't open ports below 1024 on the hosted VM. The
+watch-port container in docker-compose.yml forwards the exposed port, 1001, to it.
 
 Session plumbing, not part of the exercise. Started by setup.sh and left running. The page asks for
 /screen a couple of times a second; each answer is the layout of the tmux window and the contents of
@@ -21,7 +24,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 SESSION = "city"
-PORT = int(os.environ.get("CITY_WATCH_PORT", "1001"))
+PORT = int(os.environ.get("CITY_WATCH_SERVER_PORT", "8001"))
 TMUX = str(Path.home() / ".local" / "bin" / "tmux")
 
 # The 16 standard colours, close to the editor's dark terminal theme.

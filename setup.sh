@@ -128,11 +128,13 @@ EOF
 
 # --- The coach's view --------------------------------------------------------
 # Two parts, like the designing agents module's coach sync. A live, read-only view of the learner's
-# tmux session in a browser: .session/watch_server.py on port 1001, which reads the panes with
-# `tmux capture-pane` and scales them to fit the coach's window. It never sends anything to tmux.
-# And CITY.md, a summary that .session/coach_summary.py rewrites every few seconds, which the
-# learnersync container in docker-compose.yml sends to the coach. Both run in the background and are
-# only started if they aren't already running, since this script re-runs on every boot.
+# tmux session in a browser: .session/watch_server.py, which reads the panes with `tmux capture-pane`
+# and scales them to fit the coach's window (it never sends anything to tmux). It listens on 8001, and
+# the watch-port container forwards the exposed port, 1001, to it. And CITY.md, a summary that
+# .session/coach_summary.py rewrites every few seconds, which the learnersync container sends to the
+# coach. On the hosted VM, background processes started here don't outlive the startup step, so
+# .session/layout.sh starts both in a hidden tmux session when the learner opens the editor. They're
+# also started here, if they aren't already running, which keeps the local emulator's port check happy.
 mkdir -p "$HOME/.city-session/coach"
 if ! pgrep -u "$(id -u)" -f "\.session/watch_server\.py" >/dev/null; then
   setsid nohup python3 "$REPO_DIR/.session/watch_server.py" > "$HOME/.city-session/watch_server.log" 2>&1 < /dev/null &

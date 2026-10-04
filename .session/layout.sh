@@ -29,4 +29,15 @@ if ! tmux has-session -t "$SESSION" 2>/dev/null; then
 fi
 # -d detaches any earlier client (a terminal from before an editor reload), which
 # would otherwise keep the window at its own size.
+# The coach's watch server and CITY.md summary run in a hidden tmux session. Processes that setup.sh
+# starts in the background don't outlive the VM's startup step, but this session lasts as long as
+# the learner's. Each starts only if it isn't already running.
+if ! tmux has-session -t city-services 2>/dev/null; then
+  tmux new-session -d -s city-services -n services
+fi
+pgrep -u "$(id -u)" -f "\.session/watch_server\.py" >/dev/null ||
+  tmux new-window -d -t city-services "python3 $PWD/.session/watch_server.py 2>&1 | tee -a $HOME/.city-session/watch_server.log"
+pgrep -u "$(id -u)" -f "\.session/coach_summary\.py" >/dev/null ||
+  tmux new-window -d -t city-services "python3 $PWD/.session/coach_summary.py 2>&1 | tee -a $HOME/.city-session/coach_summary.log"
+
 exec tmux attach -d -t "$SESSION"

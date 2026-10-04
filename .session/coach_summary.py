@@ -18,7 +18,7 @@ REPO = Path(__file__).resolve().parent.parent
 SESSION_DIR = Path.home() / ".city-session"
 OUT = SESSION_DIR / "coach" / "CITY.md"
 CARDS = [line.strip() for line in (Path(__file__).parent / "cards.txt").read_text().splitlines() if line.strip()]
-WATCH_PORT = os.environ.get("CITY_WATCH_PORT", "1001")
+WATCH_PORT = os.environ.get("CITY_WATCH_PORT", "1001")  # the exposed port, forwarded to the watch server
 INTERVAL = 3
 
 

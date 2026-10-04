@@ -1,4 +1,6 @@
-# The coach sync. Sends the coach one file, CITY.md: a link to a live, read-only view of the learner's
+# The coach's view. The watch server (.session/watch_server.py) runs as the learner on port 8001,
+# because the learner can't open ports below 1024 on the hosted VM; watch-port forwards the exposed
+# port, 1001, to it. The sync sends the coach one file, CITY.md: a link to a live, read-only view of the learner's
 # tmux session, and a summary of where they are (feature card, OpenSpec changes, tests, last prompt).
 # .session/coach_summary.py writes it; it appears in the coach's "Recently edited files".
 services:
@@ -16,4 +18,13 @@ services:
       - ./attendance_id:/app/sync/attendance_id
     tty: true
     stdin_open: true
+    restart: unless-stopped
+
+  watch-port:
+    image: "alpine/socat:1.8.0.3"
+    command: "TCP-LISTEN:1001,fork,reuseaddr TCP:host.docker.internal:8001"
+    ports:
+      - "1001:1001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
