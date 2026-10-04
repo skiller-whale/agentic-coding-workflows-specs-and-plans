@@ -87,6 +87,34 @@ fi
 export DO_NOT_TRACK=1
 mise exec "node@${NODE_VERSION}" -- openspec config set telemetry.enabled false >/dev/null 2>&1 || true
 
+# The /opsx: slash commands and their skills (.claude/commands/opsx/, .claude/skills/openspec-*/) are
+# generated here rather than checked in, so they always match the pinned OpenSpec version. The
+# session uses all twelve workflows. 1.14.0 has no preset for that, so the global config gets a
+# custom profile listing them (merged, keeping the telemetry setting above). `openspec init` on an
+# existing project only writes the Claude files and leaves openspec/ alone. Skipped once the files
+# exist, so a reboot doesn't touch them.
+python3 - << 'PYEOF'
+import json
+import os
+
+path = os.path.expanduser("~/.config/openspec/config.json")
+os.makedirs(os.path.dirname(path), exist_ok=True)
+try:
+    with open(path) as f:
+        data = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    data = {}
+data["profile"] = "custom"
+data["delivery"] = "both"
+data["workflows"] = ["propose", "explore", "new", "continue", "ff", "apply", "verify", "update", "sync",
+                     "archive", "bulk-archive", "onboard"]
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+PYEOF
+if [ ! -f "$REPO_DIR/.claude/skills/openspec-propose/SKILL.md" ]; then
+  (cd "$REPO_DIR" && mise exec "node@${NODE_VERSION}" -- openspec init --tools claude --profile custom --no-animation . < /dev/null > /dev/null)
+fi
+
 # --- Python packages: Textual (the city app) and pytest ---------------------
 # Guarded so a reboot doesn't hit the package index every time.
 if ! python3 -c "import textual, pytest" >/dev/null 2>&1; then
