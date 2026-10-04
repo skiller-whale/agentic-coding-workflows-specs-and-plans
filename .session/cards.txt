@@ -1,0 +1,8 @@
+A car drives around the city at random.
+Packages appear on random blocks.
+The car picks up a package and delivers it.
+Each delivery earns money, and the takings are shown on screen.
+A second car joins.
+Junctions get traffic lights.
+Urgent packages pay more, but expire.
+A road closes for works, and cars route around it.

@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learner's city (read-only)</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230dbc79'/%3E%3C/svg%3E">
+<style>
+  :root { --bg: #1e1e1e; --fg: #cccccc; --border: #5a5a5a; --active: #0dbc79; --note: #8a8a8a;
+          --panel: #181818; --hover: #2a2d2e; --open: #37373d; --fresh: #e5c07b; }
+  html, body { margin: 0; height: 100%; background: #111; color: var(--fg); overflow: hidden;
+               font: 13px/1.05 ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", monospace; }
+  #bar { position: fixed; top: 0; left: 0; right: 0; height: 30px; display: flex; align-items: center; gap: 12px;
+         padding: 0 10px; font: 12px system-ui, sans-serif; color: var(--note); background: var(--panel);
+         border-bottom: 1px solid #2b2b2b; }
+  #bar b { color: #ddd; font-weight: 600; }
+  #tabs { display: flex; gap: 2px; margin-left: 8px; }
+  #tabs button { font: 12px system-ui, sans-serif; color: var(--note); background: none; border: 1px solid transparent;
+                 border-radius: 4px; padding: 3px 10px; cursor: pointer; }
+  #tabs button:hover { color: #ddd; }
+  #tabs button[aria-selected="true"] { color: #fff; background: var(--open); border-color: #4a4a4a; }
+  #tabs button:focus-visible { outline: 2px solid #3b8eea; outline-offset: 1px; }
+  .view { position: fixed; top: 31px; left: 0; right: 0; bottom: 0; }
+  /* The views set their own display, which would otherwise beat the hidden attribute. */
+  [hidden] { display: none !important; }
+
+  /* Screen: the learner's tmux window, scaled to fit */
+  #screen-view { display: flex; align-items: center; justify-content: center; }
+  /* flex: none, or a window wider than the page gets squeezed before it is scaled down to fit */
+  #screen { position: relative; flex: none; background: var(--bg); transform-origin: center center; }
+  .pane { position: absolute; overflow: hidden; }
+  .pane pre { margin: 0; font: inherit; white-space: pre; }
+  .title { position: absolute; height: 1.05em; line-height: 1.05em; color: var(--fg); white-space: pre; overflow: hidden; }
+  .title.active { color: var(--active); }
+  .rule { position: absolute; background: var(--border); }
+  #waiting { font: 16px system-ui, sans-serif; color: var(--note); }
+
+  /* Files: the repo tree beside the open file */
+  #files-view { display: grid; grid-template-columns: 300px 1fr; background: var(--bg); }
+  #tree { overflow: auto; padding: 8px 0; background: var(--panel); border-right: 1px solid #2b2b2b;
+          font: 13px/1.6 ui-monospace, Menlo, Consolas, monospace; }
+  .node { display: flex; align-items: center; gap: 6px; width: 100%; padding: 0 10px; border: 0; background: none;
+          color: var(--fg); font: inherit; text-align: left; cursor: pointer; white-space: nowrap; }
+  .node:hover { background: var(--hover); }
+  .node.open { background: var(--open); color: #fff; }
+  .node.dir { color: #b8b8b8; }
+  .node .caret { width: 10px; color: var(--note); flex: none; }
+  .node .name { overflow: hidden; text-overflow: ellipsis; }
+  .node .fresh { margin-left: auto; color: var(--fresh); font-size: 11px; flex: none; }
+  #viewer { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  #viewer-head { display: flex; gap: 12px; align-items: baseline; padding: 8px 14px; border-bottom: 1px solid #2b2b2b;
+                 font: 12px system-ui, sans-serif; color: var(--note); }
+  #viewer-head b { font: 13px ui-monospace, Menlo, Consolas, monospace; color: #ddd; font-weight: 400; }
+  #viewer-body { flex: 1; overflow: auto; margin: 0; padding: 10px 0; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+  #viewer-body .ln { display: grid; grid-template-columns: 3.5em 1fr; column-gap: 12px; padding-right: 14px; }
+  #viewer-body .n { text-align: right; color: #5a5a5a; user-select: none; }
+  #viewer-body .t { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+  #viewer-empty { padding: 24px; font: 14px system-ui, sans-serif; color: var(--note); }
+  /* syntax colours, close to the editor's dark theme */
+  .k { color: #c586c0; } .s { color: #ce9178; } .c { color: #6a9955; font-style: italic; } .num { color: #b5cea8; }
+  .fn { color: #dcdcaa; } .d { color: #dcdcaa; } .h { color: #569cd6; font-weight: 700; } .code { color: #ce9178; }
+  .b { color: #e8e8e8; font-weight: 700; } .li { color: #6796e6; } .must { color: #4ec9b0; font-weight: 700; }
+  .key { color: #9cdcfe; } .chk { color: #4ec9b0; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <b>Learner's city</b><span>read-only</span>
+  <div id="tabs" role="tablist">
+    <button role="tab" id="tab-screen" data-view="screen" aria-selected="true">Screen</button>
+    <button role="tab" id="tab-files" data-view="files" aria-selected="false">Files</button>
+  </div>
+  <span id="age"></span>
+</div>
+
+<div class="view" id="screen-view">
+  <div id="waiting">Waiting for the learner to open the hosted environment…</div>
+  <div id="screen" hidden></div>
+</div>
+
+<div class="view" id="files-view" hidden>
+  <nav id="tree" aria-label="Files"></nav>
+  <section id="viewer">
+    <div id="viewer-empty">Choose a file to read it. It updates as the learner and Claude change it.</div>
+  </section>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+let view = "screen", last = 0;
+
+// ---- tabs ----
+function show(name) {
+  view = name;
+  for (const b of document.querySelectorAll("#tabs button")) b.setAttribute("aria-selected", String(b.dataset.view === name));
+  $("screen-view").hidden = name !== "screen";
+  $("files-view").hidden = name !== "files";
+  try { localStorage.setItem("city-watch-view", name); } catch (e) {}
+  if (name === "files") { loadTree(); if (openPath) loadFile(true); }
+  else if (current) fit(current);
+}
+for (const b of document.querySelectorAll("#tabs button")) b.addEventListener("click", () => show(b.dataset.view));
+
+// ---- screen ----
+const screenEl = $("screen");
+let cw = 0, ch = 0, current = null;
+function measure() {
+  const probe = document.createElement("pre");
+  probe.style.cssText = "position:absolute;visibility:hidden;margin:0;font:inherit";
+  probe.textContent = "M".repeat(100);
+  document.body.append(probe);
+  cw = probe.getBoundingClientRect().width / 100;
+  ch = probe.getBoundingClientRect().height;
+  probe.remove();
+}
+function draw(s) {
+  if (s.waiting) { $("waiting").hidden = false; screenEl.hidden = true; return; }
+  $("waiting").hidden = true; screenEl.hidden = false;
+  screenEl.style.width = `${s.width * cw}px`;
+  screenEl.style.height = `${s.height * ch}px`;
+  const parts = [];
+  for (const p of s.panes) {
+    // tmux draws each pane's title on the border row above it (pane-border-status top).
+    parts.push(`<div class="title${p.active ? " active" : ""}" style="left:${p.left * cw}px;top:${(p.top - 1) * ch}px;width:${p.width * cw}px">─ ${esc(p.title)} </div>`);
+    if (p.left > 0) parts.push(`<div class="rule" style="left:${(p.left - 0.5) * cw}px;top:${(p.top - 1) * ch}px;width:1px;height:${(p.height + 1) * ch}px"></div>`);
+    parts.push(`<div class="pane" style="left:${p.left * cw}px;top:${p.top * ch}px;width:${p.width * cw}px;height:${p.height * ch}px"><pre>${p.lines.join("\n")}</pre></div>`);
+  }
+  screenEl.innerHTML = parts.join("");
+  fit(s);
+}
+function fit(s) {
+  if (!s || s.waiting || view !== "screen") return;
+  const box = $("screen-view").getBoundingClientRect();
+  screenEl.style.transform = `scale(${Math.min(box.width / (s.width * cw), box.height / (s.height * ch))})`;
+}
+async function pollScreen() {
+  if (view === "screen") {
+    try {
+      current = await (await fetch("screen", { cache: "no-store" })).json();
+      draw(current);
+      last = Date.now();
+    } catch (e) { /* the VM may be busy; try again */ }
+  }
+  setTimeout(pollScreen, 500);
+}
+
+// ---- syntax highlighting: one line at a time, so line numbers and wrapping keep working ----
+const PY_KEYWORDS = new Set(["and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del", "elif", "else",
+  "except", "finally", "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise",
+  "return", "try", "while", "with", "yield", "None", "True", "False", "self"]);
+const span = (cls, text) => `<span class="${cls}">${esc(text)}</span>`;
+const PY_TOKEN = /(#.*$)|("""|''')|(f?"(?:[^"\\]|\\.)*"|f?'(?:[^'\\]|\\.)*')|(@\w+)|(\b\d+(?:\.\d+)?\b)|(\b[A-Za-z_]\w*\b)|([^#"'@\w]+|.)/g;
+
+function highlightPython(line, state) {
+  // state.triple carries an open """ or ''' string from one line to the next.
+  let out = "", rest = line;
+  if (state.triple) {
+    const end = rest.indexOf(state.triple);
+    if (end < 0) return span("s", rest);
+    out += span("s", rest.slice(0, end + 3));
+    rest = rest.slice(end + 3);
+    state.triple = null;
+  }
+  let afterDef = false;
+  for (const m of rest.matchAll(PY_TOKEN)) {
+    const [text, comment, triple, str, deco, num, word] = m;
+    if (state.triple) { out += span("s", text); if (triple === state.triple) state.triple = null; continue; }
+    if (comment) out += span("c", text);
+    else if (triple) { state.triple = triple; out += span("s", text); }
+    else if (str) out += span("s", text);
+    else if (deco) out += span("d", text);
+    else if (num) out += span("num", text);
+    else if (word) {
+      out += afterDef ? span("fn", text) : PY_KEYWORDS.has(word) ? span("k", text) : esc(text);
+      afterDef = word === "def" || word === "class";
+      continue;
+    } else out += esc(text);
+    if (text.trim()) afterDef = false;
+  }
+  return out;
+}
+
+function inlineMarkdown(text) {
+  return text.split(/(`[^`]+`)/).map((part) => {
+    if (/^`[^`]+`$/.test(part)) return span("code", part);
+    return esc(part)
+      .replace(/\*\*([^*]+)\*\*/g, '<span class="b">**$1**</span>')
+      .replace(/\b(SHALL NOT|MUST NOT|SHALL|MUST|SHOULD)\b/g, '<span class="must">$1</span>');
+  }).join("");
+}
+
+function highlightMarkdown(line, state) {
+  if (/^\s*```/.test(line)) { state.fence = !state.fence; return span("c", line); }
+  if (state.fence) return span("code", line);
+  if (/^#{1,6}\s/.test(line)) return span("h", line);
+  const item = /^(\s*)([-*]|\d+\.)(\s+)(\[[ xX]\]\s+)?(.*)$/.exec(line);
+  if (item) {
+    const [, indent, marker, gap, box, text] = item;
+    return esc(indent) + span("li", marker) + esc(gap) + (box ? span("chk", box) : "") + inlineMarkdown(text);
+  }
+  return inlineMarkdown(line);
+}
+
+function highlightYaml(line) {
+  if (/^\s*#/.test(line)) return span("c", line);
+  const m = /^(\s*-?\s*)([\w.-]+)(:)(.*)$/.exec(line);
+  if (!m) return esc(line);
+  const [, lead, key, colon, value] = m;
+  const hash = value.indexOf(" #");
+  const val = hash >= 0 ? value.slice(0, hash) : value;
+  const valHtml = /^\s*["'].*["']\s*$/.test(val) ? span("s", val) : /^\s*-?\d+(\.\d+)?\s*$/.test(val) ? span("num", val) : esc(val);
+  return esc(lead) + span("key", key) + esc(colon) + valHtml + (hash >= 0 ? span("c", value.slice(hash)) : "");
+}
+
+function highlightLines(path, text) {
+  const lines = text.replace(/\n$/, "").split("\n");
+  const state = {};
+  if (path.endsWith(".py")) return lines.map((l) => highlightPython(l, state));
+  if (path.endsWith(".md")) return lines.map((l) => highlightMarkdown(l, state));
+  if (/\.ya?ml$/.test(path)) return lines.map(highlightYaml);
+  return lines.map(esc);
+}
+
+// ---- files ----
+let openPath = null, openMtime = 0, treeData = null;
+const collapsed = new Set(["openspec/changes/archive"]);
+try { const s = localStorage.getItem("city-watch-file"); if (s) openPath = s; } catch (e) {}
+
+function ago(seconds) {
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`;
+  return `${Math.round(seconds / 3600)} h ago`;
+}
+
+function renderTree() {
+  if (!treeData) return;
+  // Build nested dirs from the flat path list, directories before files at each level.
+  const root = { dirs: new Map(), files: [] };
+  for (const f of treeData.files) {
+    const parts = f.path.split("/");
+    let node = root;
+    for (const part of parts.slice(0, -1)) {
+      if (!node.dirs.has(part)) node.dirs.set(part, { dirs: new Map(), files: [] });
+      node = node.dirs.get(part);
+    }
+    node.files.push({ name: parts.at(-1), ...f });
+  }
+  const out = [];
+  const walk = (node, prefix, depth) => {
+    for (const [name, child] of [...node.dirs].sort((a, b) => a[0].localeCompare(b[0]))) {
+      const path = prefix + name;
+      const shut = collapsed.has(path);
+      out.push(`<button class="node dir" data-dir="${esc(path)}" style="padding-left:${10 + depth * 14}px"><span class="caret">${shut ? "▸" : "▾"}</span><span class="name">${esc(name)}/</span></button>`);
+      if (!shut) walk(child, path + "/", depth + 1);
+    }
+    for (const f of node.files.sort((a, b) => a.name.localeCompare(b.name))) {
+      const fresh = treeData.now - f.mtime < 120 ? `<span class="fresh" title="changed in the last two minutes">●</span>` : "";
+      out.push(`<button class="node file${f.path === openPath ? " open" : ""}" data-file="${esc(f.path)}" style="padding-left:${10 + depth * 14}px"><span class="caret"></span><span class="name">${esc(f.name)}</span>${fresh}</button>`);
+    }
+  };
+  walk(root, "", 0);
+  const tree = $("tree"), top = tree.scrollTop;
+  tree.innerHTML = out.join("");
+  tree.scrollTop = top;
+}
+
+$("tree").addEventListener("click", (e) => {
+  const node = e.target.closest(".node");
+  if (!node) return;
+  if (node.dataset.dir) {
+    collapsed.has(node.dataset.dir) ? collapsed.delete(node.dataset.dir) : collapsed.add(node.dataset.dir);
+    renderTree();
+  } else {
+    openPath = node.dataset.file;
+    openMtime = 0;
+    try { localStorage.setItem("city-watch-file", openPath); } catch (e) {}
+    renderTree();
+    loadFile(true);
+  }
+});
+
+async function loadTree() {
+  try {
+    treeData = await (await fetch("files", { cache: "no-store" })).json();
+    renderTree();
+    last = Date.now();
+  } catch (e) { /* try again next time */ }
+}
+
+async function loadFile(fromTop) {
+  if (!openPath) return;
+  const viewer = $("viewer");
+  try {
+    const res = await fetch(`file?path=${encodeURIComponent(openPath)}`, { cache: "no-store" });
+    if (!res.ok) {
+      viewer.innerHTML = `<div id="viewer-empty">${esc(openPath)} isn't there any more. It may have been moved, for example into the archive.</div>`;
+      openMtime = 0;
+      return;
+    }
+    const f = await res.json();
+    const changedAgo = treeData ? ago(treeData.now - f.mtime) : "";
+    if (f.mtime === openMtime) {
+      const when = $("viewer-when");
+      if (when) when.textContent = `changed ${changedAgo}`;
+      return;
+    }
+    openMtime = f.mtime;
+    const body = $("viewer-body");
+    const keep = fromTop || !body ? 0 : body.scrollTop;
+    const lines = highlightLines(f.path, f.text)
+      .map((l, i) => `<span class="ln"><span class="n">${i + 1}</span><span class="t">${l || " "}</span></span>`).join("");
+    viewer.innerHTML = `<div id="viewer-head"><b>${esc(f.path)}</b><span id="viewer-when">changed ${changedAgo}</span>${f.truncated ? "<span>· showing the first 512 KB</span>" : ""}</div><pre id="viewer-body">${lines}</pre>`;
+    $("viewer-body").scrollTop = keep;
+  } catch (e) { /* try again next time */ }
+}
+
+async function pollFiles() {
+  if (view === "files") { await loadTree(); await loadFile(false); }
+  setTimeout(pollFiles, 2000);
+}
+
+// ---- start ----
+setInterval(() => { $("age").textContent = last && Date.now() - last > 6000 ? "· connection lost, retrying" : ""; }, 1000);
+addEventListener("resize", () => fit(current));
+measure();
+pollScreen();
+pollFiles();
+try { if (localStorage.getItem("city-watch-view") === "files") show("files"); } catch (e) {}
+</script>
+</body>
+</html>
