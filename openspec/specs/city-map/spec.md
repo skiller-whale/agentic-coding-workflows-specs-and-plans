@@ -1,7 +1,7 @@
 # city-map Specification
 
 ## Purpose
-Show a fixed map of a city block in the terminal.
+Show a fixed map of a city block in the terminal, with its roads, buildings and parks.
 
 ## Requirements
 

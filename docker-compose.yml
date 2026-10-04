@@ -1,7 +1,7 @@
 # The coach's view. The watch server (.session/watch_server.py) runs as the learner on port 8001,
 # because the learner can't open ports below 1024 on the hosted VM; watch-port forwards the exposed
 # port, 1001, to it. The sync sends the coach one file, CITY.md: a link to a live, read-only view of the learner's
-# tmux session, and a summary of where they are (feature card, OpenSpec changes, tests, last prompt).
+# tmux session, and a summary of where they are (OpenSpec changes, tests, last prompt).
 # .session/coach_summary.py writes it; it appears in the coach's "Recently edited files".
 services:
   sync:

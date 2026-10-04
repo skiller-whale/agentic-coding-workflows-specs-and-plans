@@ -108,7 +108,8 @@ fi
 
 # Mouse on so learners click between panes and drag the borders; the prefix
 # moves off C-b, which Claude Code uses to background a command; pane titles
-# say what each pane is for. extended-keys lets Shift+Enter reach Claude Code.
+# say what each pane is for. extended-keys lets Shift+Enter reach Claude Code, and focus-events
+# tells it when its pane is focused (it asks for this otherwise).
 cat << 'EOF' > "$HOME/.tmux.conf"
 set -g mouse on
 set -g prefix C-]
@@ -119,6 +120,7 @@ set -g pane-border-status top
 set -g pane-border-format " #{pane_title} "
 set -g allow-rename off
 set -g escape-time 10
+set -g focus-events on
 set -g history-limit 50000
 set -g default-terminal "tmux-256color"
 set -as terminal-features ",xterm*:RGB"
@@ -229,6 +231,7 @@ data.setdefault("files.exclude", {}).update({
     "docker-compose.yml": True,
     "attendance_id": True,
     "**/__pycache__": True,
+    "**/.pytest_cache": True,
 })
 # The tmux layout is the whole session, so its terminal (see the .zshrc hook
 # above) opens as an editor tab, filling the main area.

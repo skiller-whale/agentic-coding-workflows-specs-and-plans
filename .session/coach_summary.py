@@ -1,7 +1,7 @@
 """Writes CITY.md for the coach: a link to the live read-only watch and a summary of where the learner is.
 
 Session plumbing, not part of the exercise. Started by setup.sh and left running. Every few seconds it
-reads the dispatch pane's state, the openspec/ folder, the test results and Claude Code's transcript,
+reads the openspec/ folder, the test results and Claude Code's transcript,
 and rewrites ~/.city-session/coach/CITY.md if anything changed. The learnersync container watches that
 folder and sends the file to Train, where it appears in the coach's "Recently edited files".
 """
@@ -17,7 +17,6 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 SESSION_DIR = Path.home() / ".city-session"
 OUT = SESSION_DIR / "coach" / "CITY.md"
-CARDS = [line.strip() for line in (Path(__file__).parent / "cards.txt").read_text().splitlines() if line.strip()]
 WATCH_PORT = os.environ.get("CITY_WATCH_PORT", "1001")  # the exposed port, forwarded to the watch server
 INTERVAL = 3
 
@@ -29,17 +28,6 @@ def watch_url():
         return f"http://localhost:{WATCH_PORT}/"
     vm, domain = host.split(".", 1)
     return f"https://{vm}-port-{WATCH_PORT}.{domain}/"
-
-
-def card_line():
-    try:
-        state = json.loads((SESSION_DIR / "dispatch.json").read_text())
-        current, furthest = int(state["current"]), int(state["furthest"])
-    except (OSError, ValueError, KeyError, TypeError):
-        return "Feature card: not opened yet"
-    text = CARDS[current] if 0 <= current < len(CARDS) else "?"
-    furthest_note = f" (furthest reached: {furthest + 1})" if furthest != current else ""
-    return f"Feature card: {current + 1} of {len(CARDS)}{furthest_note}. {text}"
 
 
 def requirement_count(spec):
@@ -93,6 +81,15 @@ def code_key():
         except OSError:
             pass
     return tuple(sorted(files))
+
+
+def checkpoint_line():
+    """The last checkpoint the learner loaded with /checkpoint (written by .session/checkpoint.sh), if any."""
+    try:
+        state = json.loads((SESSION_DIR / "checkpoint.json").read_text())
+        return [f"Last checkpoint loaded: {state['name']} at {state['time']}", ""]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
 
 
 def tests_line():
@@ -168,8 +165,7 @@ def summary():
         "",
         f"Watch live, read-only: {watch_url()}",
         "",
-        card_line(),
-        "",
+        *checkpoint_line(),
         *openspec_lines(),
         tests_line(),
         last_prompt_line(),
