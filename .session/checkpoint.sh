@@ -8,7 +8,7 @@ case "$NAME" in start|deliveries|busy) ;; *) echo "Usage: checkpoint.sh start|de
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 ARCHIVE="$REPO/.session/checkpoints.tar.gz"
 # Session and editor plumbing that a checkpoint never touches.
-KEEP=" .claude .session .vscode .git .gitignore setup.sh docker-compose.yml docker-compose.override.yml attendance_id .curriculumconfig "
+KEEP=" .claude .session HELP_I_BROKE_IT.md .vscode .git .gitignore setup.sh docker-compose.yml docker-compose.override.yml attendance_id .curriculumconfig "
 cd "$REPO"
 shopt -s dotglob nullglob
 for path in *; do
